@@ -190,6 +190,23 @@ function checkUpdates(manual)
 end
 
 function downloadUpdates(info)
+    local function convertToCP1251(content)
+        local encoding = require 'encoding'
+        encoding.default = 'CP1251'
+        return encoding.UTF8:decode(content)
+    end
+
+    local function processFile(path, content)
+        local f = io.open(path, 'w+b') -- Открываем в бинарном режиме
+        if f then
+            local converted_content = convertToCP1251(content)
+            f:write(converted_content)
+            f:close()
+            return true
+        end
+        return false
+    end
+
     local download_queue = {}
     
     if info.updateurl then
@@ -204,7 +221,7 @@ function downloadUpdates(info)
     
     local function processQueue()
         if #download_queue == 0 then
-            sampAddChatMessage('[AutoReport] {ffffff}Все файлы обновлены! Перезагружаю скрипт...', 0x7ef542)
+            sampAddChatMessage('Все файлы обновлены! Перезагружаю скрипт...', 0x7ef542)
             lua_thread.create(function()
                 wait(1000)
                 thisScript():reload()
@@ -213,52 +230,44 @@ function downloadUpdates(info)
         end
         
         local item = table.remove(download_queue, 1)
-        sampAddChatMessage('[AutoReport] {ffffff}Загрузка: ' .. item.name, 0x7ef542)
+        sampAddChatMessage('Загрузка: ' .. item.name, 0x7ef542)
         
-        if doesFileExist(item.path) then
-            os.remove(item.path)
-            wait(100)
-        end
-        
-        local folder = item.path:match("(.*\\)")
-        if folder and not doesDirectoryExist(folder) then
-            createDirectory(folder)
-        end
-        
-        local attempts = 0
-        local max_attempts = 3
-        
-        local function tryDownload()
-            attempts = attempts + 1
-            downloadUrlToFile(item.url, item.path, function(id, status, p1, p2)
-                if status == dlstatus.STATUS_ENDDOWNLOADDATA then
+        -- Скачиваем во временный файл
+        local temp_path = item.path .. '.tmp'
+        downloadUrlToFile(item.url, temp_path, function(id, status, p1, p2)
+            if status == dlstatus.STATUS_ENDDOWNLOADDATA then
+                -- Читаем содержимое временного файла
+                local f = io.open(temp_path, 'r')
+                if f then
+                    local content = f:read('*all')
+                    f:close()
+                    os.remove(temp_path)
+                    
+                    -- Удаляем старый файл
                     if doesFileExist(item.path) then
-                        sampAddChatMessage('[AutoReport] {ffffff}Успешно загружен: ' .. item.name, 0x7ef542)
+                        os.remove(item.path)
+                    end
+                    
+                    -- Сохраняем с правильной кодировкой
+                    if processFile(item.path, content) then
+                        sampAddChatMessage('Успешно загружен: ' .. item.name, 0x7ef542)
                         wait(500)
                         processQueue()
                     else
-                        if attempts < max_attempts then
-                            sampAddChatMessage('[AutoReport] {ffffff}Повторная попытка загрузки: ' .. item.name, 0x7ef542)
-                            wait(1000)
-                            tryDownload()
-                        else
-                            sampAddChatMessage('[AutoReport] {ff0000}Ошибка загрузки: ' .. item.name, 0x7ef542)
-                            processQueue()
-                        end
+                        sampAddChatMessage('Ошибка сохранения: ' .. item.name, 0x7ef542)
+                        processQueue()
                     end
+                else
+                    sampAddChatMessage('Ошибка чтения: ' .. item.name, 0x7ef542)
+                    processQueue()
                 end
-            end)
-        end
-        
-        lua_thread.create(function()
-            wait(100)
-            tryDownload()
+            end
         end)
     end
     
     sampAddChatMessage('г==========================================', 0x7ef542)
-    sampAddChatMessage('¦ {ffffff}Начинаю процесс обновления', 0x7ef542)
-    sampAddChatMessage('¦ {ffffff}Всего файлов к загрузке: {00ff00}' .. #download_queue, 0x7ef542)
+    sampAddChatMessage('¦ Начинаю процесс обновления', 0x7ef542)
+    sampAddChatMessage('¦ Всего файлов к загрузке: {00ff00}' .. #download_queue, 0x7ef542)
     sampAddChatMessage('L==========================================', 0x7ef542)
     
     lua_thread.create(function()
