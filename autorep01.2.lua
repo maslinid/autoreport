@@ -1,6 +1,6 @@
 script_name('AutoReport')
-script_version_number = '2.1'
-script_version('2.1')
+script_version_number = '2.1.1'
+script_version('2.1.1')
 script_author('Papa_Neurowise')
 
 require 'lib.moonloader'
@@ -17,6 +17,15 @@ local ffi = require 'ffi'
 local imgui = require 'imgui'
 local inicfg = require 'inicfg'
 local encoding = require 'encoding'
+encoding.default = 'CP1251'
+u8 = encoding.UTF8
+-- Сохраняем оригинальную функцию
+local originalSampAddChatMessage = sampAddChatMessage
+
+-- Создаём новую функцию-обёртку
+function sampAddChatMessage(text, color)
+    return originalSampAddChatMessage(u8:decode(text), color)
+end
 local memory_flag = 0x000000 -- Адрес в памяти для связи с CLEO
 local enable_autoupdate = true
 local update_url = 'https://raw.githubusercontent.com/maslinid/autoreport/refs/heads/main/update.json'
@@ -42,9 +51,6 @@ disable_after_recon_switch.v = mainIni.main.disable_after_recon_switch
 
 -- И загрузите значение при старте
 report_cooldown = mainIni.main.report_cooldown
-
-encoding.default = 'CP1251'
-u8 = encoding.UTF8
 
 -- Глобальные переменные
 local active = false
