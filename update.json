@@ -1,10 +1,10 @@
 {
-    "latest": "2.1.1",
+    "latest": "2.2",
     "updateurl": "https://raw.githubusercontent.com/maslinid/autoreport/refs/heads/main/autorep01.2.lua",
     "additional_files": {
         "autorep_sync.lua": "https://raw.githubusercontent.com/maslinid/autoreport/refs/heads/main/autorep_sync.lua",
         "check_quit.lua": "https://raw.githubusercontent.com/maslinid/autoreport/refs/heads/main/check_quit.lua",
         "network_optimizer.lua": "https://raw.githubusercontent.com/maslinid/autoreport/refs/heads/main/network_optimizer.lua"
     },
-    "changelog": "Обновление 2.1:\n- Улучшен интерфейс настроек\n- Добавлены новые настройки для ловли\n- Исправлены баги\n- Добавлена синхронизация\n- Исправлено автообновление"
+    "changelog": "Обновление 2.2:\n- Улучшен интерфейс настроек\n- Добавлены новые настройки для ловли\n- Исправлены баги\n- Добавлена синхронизация\n- Исправлено автообновление"
 }
