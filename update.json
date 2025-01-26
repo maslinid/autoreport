@@ -1,6 +1,6 @@
 {
     "latest": "2.2",
-    "updateurl": "https://raw.githubusercontent.com/maslinid/autoreport/refs/heads/main/autorep01.2.lua",
+    "updateurl": "https://raw.githubusercontent.com/maslinid/autoreport/refs/heads/main/autorep01.2.lua.b64",
     "additional_files": {
         "autorep_sync.lua": "https://raw.githubusercontent.com/maslinid/autoreport/refs/heads/main/autorep_sync.lua",
         "check_quit.lua": "https://raw.githubusercontent.com/maslinid/autoreport/refs/heads/main/check_quit.lua",
