@@ -1,6 +1,6 @@
 script_name('AutoReport')
-script_version_number = '2.1.1'
-script_version('2.1.1')
+script_version_number = '2.2'
+script_version('2.2')
 script_author('Papa_Neurowise')
 
 require 'lib.moonloader'
@@ -19,13 +19,19 @@ local inicfg = require 'inicfg'
 local encoding = require 'encoding'
 encoding.default = 'CP1251'
 u8 = encoding.UTF8
+
 -- Сохраняем оригинальную функцию
 local originalSampAddChatMessage = sampAddChatMessage
 
--- Создаём новую функцию-обёртку
+-- Исправленная функция-обёртка
 function sampAddChatMessage(text, color)
-    return originalSampAddChatMessage(u8:decode(text), color)
+    if not text then return end
+    text = tostring(text)
+    -- Убираем лишние цветовые коды в начале строки
+    text = text:gsub('^{%x+}%s*', '')
+    return originalSampAddChatMessage('[AutoReport] ' .. text, color)
 end
+
 local memory_flag = 0x000000 -- Адрес в памяти для связи с CLEO
 local enable_autoupdate = true
 local update_url = 'https://raw.githubusercontent.com/maslinid/autoreport/refs/heads/main/update.json'
@@ -42,9 +48,12 @@ local mainIni = inicfg.load({
         toggleKey = 0xC2,
         report_cooldown = 0,
         disable_after_report = false,
-        disable_after_recon_switch = false  -- Добавляем новую настройку
+        disable_after_recon_switch = false,
+        -- Добавляем все остальные настройки
+        window_position_x = 0,
+        window_position_y = 0
     }
-}, directIni)
+}, 'autoreport.ini')
 
 -- И загружаем значение
 disable_after_recon_switch.v = mainIni.main.disable_after_recon_switch
@@ -120,48 +129,158 @@ function checkUpdates(manual)
                 file:close()
                 
                 local ok, info = pcall(decodeJson, content)
-                if ok and info then
+                if ok and info and info.latest then
                     local current_version = tonumber(script_version_number)
                     local latest_version = tonumber(info.latest)
                     
-                    if latest_version > current_version then
-                        update_available = true
-                        new_version = info.latest
-                        if manual then
-                            sampAddChatMessage('г==========================================', 0x7ef542)
-                            sampAddChatMessage('¦ {ffffff}Доступно обновление!', 0x7ef542)
-                            sampAddChatMessage('¦ {ffffff}Текущая версия: {ff0000}' .. script_version_number, 0x7ef542)
-                            sampAddChatMessage('¦ {ffffff}Новая версия: {00ff00}' .. new_version, 0x7ef542)
-                            -- Декодируем changelog из UTF-8
-                            if info.changelog then
-                                sampAddChatMessage('¦ {ffffff}Список изменений:', 0x7ef542)
-                                local changelog = decodeUTF8(info.changelog)
-                                for line in changelog:gmatch("[^\n]+") do
-                                    sampAddChatMessage('¦ {ffffff}' .. line, 0x7ef542)
+                    if current_version and latest_version then
+                        if latest_version > current_version then
+                            update_available = true
+                            new_version = info.latest
+                            if manual then
+                                sampAddChatMessage('г==========================================', 0x7ef542)
+                                sampAddChatMessage('¦ {ffffff}Доступно обновление!', 0x7ef542)
+                                sampAddChatMessage('¦ {ffffff}Текущая версия: {ff0000}' .. script_version_number, 0x7ef542)
+                                sampAddChatMessage('¦ {ffffff}Новая версия: {00ff00}' .. new_version, 0x7ef542)
+                                if info.changelog then
+                                    sampAddChatMessage('¦ {ffffff}Список изменений:', 0x7ef542)
+                                    local changelog = decodeUTF8(info.changelog)
+                                    for line in changelog:gmatch("[^\n]+") do
+                                        sampAddChatMessage('¦ {ffffff}' .. line, 0x7ef542)
+                                    end
                                 end
+                                sampAddChatMessage('¦ {ffffff}Начинаю обновление...', 0x7ef542)
+                                sampAddChatMessage('L==========================================', 0x7ef542)
+                                downloadUpdates(info)
+                            else
+                                sampAddChatMessage('[AutoReport] {ffffff}Доступно обновление до версии ' .. new_version, 0x7ef542)
+                                sampAddChatMessage('[AutoReport] {ffffff}Используйте {00ccff}/arupdate{ffffff} для обновления', 0x7ef542)
                             end
-                            sampAddChatMessage('¦ {ffffff}Начинаю обновление...', 0x7ef542)
-                            sampAddChatMessage('L==========================================', 0x7ef542)
-                            downloadUpdates(info)
                         else
-                            sampAddChatMessage('[AutoReport] {ffffff}Доступно обновление до версии ' .. new_version, 0x7ef542)
-                            sampAddChatMessage('[AutoReport] {ffffff}Используйте {00ccff}/arupdate{ffffff} для обновления', 0x7ef542)
+                            update_available = false
+                            if manual then
+                                sampAddChatMessage('г==========================================', 0x7ef542)
+                                sampAddChatMessage('¦ {ffffff}У вас установлена актуальная версия', 0x7ef542)
+                                sampAddChatMessage('¦ {ffffff}Текущая версия: {00ff00}' .. script_version_number, 0x7ef542)
+                                sampAddChatMessage('L==========================================', 0x7ef542)
+                            end
                         end
                     else
-                        update_available = false
                         if manual then
-                            sampAddChatMessage('г==========================================', 0x7ef542)
-                            sampAddChatMessage('¦ {ffffff}У вас установлена актуальная версия', 0x7ef542)
-                            sampAddChatMessage('¦ {ffffff}Текущая версия: {00ff00}' .. script_version_number, 0x7ef542)
-                            sampAddChatMessage('L==========================================', 0x7ef542)
+                            sampAddChatMessage('[AutoReport] {ffffff}Ошибка сравнения версий:', 0x7ef542)
+                            sampAddChatMessage('[AutoReport] {ffffff}Текущая версия: ' .. tostring(script_version_number), 0x7ef542)
+                            sampAddChatMessage('[AutoReport] {ffffff}Версия в обновлении: ' .. tostring(info.latest), 0x7ef542)
                         end
                     end
+                else
+                    if manual then
+                        sampAddChatMessage('[AutoReport] {ffffff}Ошибка получения данных обновления', 0x7ef542)
+                    end
+                end
+            else
+                if manual then
+                    sampAddChatMessage('[AutoReport] {ffffff}Ошибка чтения файла обновления', 0x7ef542)
                 end
             end
             
-            os.remove(json_path)
+            if doesFileExist(json_path) then
+                os.remove(json_path)
+            end
         end
     end)
+end
+
+function downloadUpdates(info)
+    local download_queue = {}
+    
+    if info.updateurl then
+        table.insert(download_queue, {url = info.updateurl, path = script_path, name = "Основной скрипт"})
+    end
+    
+    if info.additional_files then
+        for filename, url in pairs(info.additional_files) do
+            table.insert(download_queue, {url = url, path = script_dir .. filename, name = filename})
+        end
+    end
+    
+    local function processQueue()
+        if #download_queue == 0 then
+            sampAddChatMessage('[AutoReport] {ffffff}Все файлы обновлены! Перезагружаю скрипт...', 0x7ef542)
+            lua_thread.create(function()
+                wait(1000)
+                thisScript():reload()
+            end)
+            return
+        end
+        
+        local item = table.remove(download_queue, 1)
+        sampAddChatMessage('[AutoReport] {ffffff}Загрузка: ' .. item.name, 0x7ef542)
+        
+        if doesFileExist(item.path) then
+            os.remove(item.path)
+            wait(100)
+        end
+        
+        local folder = item.path:match("(.*\\)")
+        if folder and not doesDirectoryExist(folder) then
+            createDirectory(folder)
+        end
+        
+        local attempts = 0
+        local max_attempts = 3
+        
+        local function tryDownload()
+            attempts = attempts + 1
+            downloadUrlToFile(item.url, item.path, function(id, status, p1, p2)
+                if status == dlstatus.STATUS_ENDDOWNLOADDATA then
+                    if doesFileExist(item.path) then
+                        sampAddChatMessage('[AutoReport] {ffffff}Успешно загружен: ' .. item.name, 0x7ef542)
+                        wait(500)
+                        processQueue()
+                    else
+                        if attempts < max_attempts then
+                            sampAddChatMessage('[AutoReport] {ffffff}Повторная попытка загрузки: ' .. item.name, 0x7ef542)
+                            wait(1000)
+                            tryDownload()
+                        else
+                            sampAddChatMessage('[AutoReport] {ff0000}Ошибка загрузки: ' .. item.name, 0x7ef542)
+                            processQueue()
+                        end
+                    end
+                end
+            end)
+        end
+        
+        lua_thread.create(function()
+            wait(100)
+            tryDownload()
+        end)
+    end
+    
+    sampAddChatMessage('г==========================================', 0x7ef542)
+    sampAddChatMessage('¦ {ffffff}Начинаю процесс обновления', 0x7ef542)
+    sampAddChatMessage('¦ {ffffff}Всего файлов к загрузке: {00ff00}' .. #download_queue, 0x7ef542)
+    sampAddChatMessage('L==========================================', 0x7ef542)
+    
+    lua_thread.create(function()
+        wait(100)
+        processQueue()
+    end)
+end
+
+function decodeUTF8(str)
+    if not str then return "" end
+    return encoding.UTF8:decode(str)
+end
+
+-- Загружаем значения при старте
+function loadSettings()
+    if mainIni then
+        disable_after_report.v = mainIni.main.disable_after_report
+        disable_after_recon_switch.v = mainIni.main.disable_after_recon_switch
+        cooldown_slider.v = mainIni.main.report_cooldown
+        report_cooldown = mainIni.main.report_cooldown
+    end
 end
 
 -- Добавляем функцию декодирования UTF-8
@@ -528,7 +647,7 @@ local function sendOtCommand()
 end
 
 -- Функция проверки активации с защитой
-local function checkActivation()
+function checkActivation()
     if checkDebugger() then return false end
     
     local path = getGameDirectory() .. '\\moonloader\\config\\autoreport_license.txt'
@@ -542,18 +661,21 @@ local function checkActivation()
     
     if not content or #content < 20 then return false end
     
-    local hwid = getSecureHWID()
-    if not hwid then 
-        sampAddChatMessage('[AutoReport] {ffffff}Ошибка: не удалось получить HWID', 0x7ef542)
-        return false 
+    -- Проверяем валидность ключа
+    if not isValidActivationKey(content) then
+        -- Если ключ невалиден, удаляем файл лицензии
+        os.remove(path)
+        return false
     end
     
-    if not content:match("(%d+):") then 
-        sampAddChatMessage('[AutoReport] {ffffff}Ошибка: неверный формат лицензии', 0x7ef542)
-        return false 
+    -- Проверяем срок действия
+    local expiration_time = content:match("(%d+):")
+    if expiration_time and tonumber(expiration_time) < os.time() then
+        os.remove(path)
+        return false
     end
     
-    return isValidActivationKey(content)
+    return true
 end
 
 -- Команды активации
@@ -637,6 +759,25 @@ function cmd_activate(arg)
     end
 end
 
+function getSecureHWID()
+    local serial = ffi.new("unsigned long[1]")
+    local result = ffi.C.GetVolumeInformationA("C:\\", nil, 0, serial, nil, nil, nil, 0)
+    
+    if result == 0 then
+        sampAddChatMessage('[AutoReport] {ffffff}Ошибка получения HWID!', 0x7ef542)
+        return nil
+    end
+    
+    local hwid = string.format("%08X", serial[0])
+    -- Проверка формата HWID
+    if not hwid:match("^%x%x%x%x%x%x%x%x$") then
+        sampAddChatMessage('[AutoReport] {ffffff}Ошибка: некорректный формат HWID', 0x7ef542)
+        return nil
+    end
+    
+    return hwid
+end
+
 function cmd_ak(arg)
     if checkDebugger() then return end
     
@@ -687,6 +828,15 @@ function processPacketPriority()
             break
         end
     until false
+end
+
+-- Перемещаем функцию updateCleoState за пределы main
+function updateCleoState()
+    if active and _0x1.is_activated then
+        memory.setint8(memory_flag, 1, true)
+    else
+        memory.setint8(memory_flag, 0, true)
+    end
 end
 
 function imgui.OnDrawFrame()
@@ -771,17 +921,17 @@ function imgui.OnDrawFrame()
         imgui.Separator()
         imgui.Spacing()
         
-        -- Настройки рекона
-        if imgui.Checkbox(u8'Выключать автоловлю в реконе', disable_after_report) then
+		-- настройки рекона
+         if imgui.Checkbox(u8'Выключать автоловлю в реконе', disable_after_report) then
             mainIni.main.disable_after_report = disable_after_report.v
-            inicfg.save(mainIni, directIni)
+            inicfg.save(mainIni, 'autoreport.ini')
         end
         
         if disable_after_report.v then
             imgui.SetCursorPosX(imgui.GetCursorPosX() + 15)
             if imgui.Checkbox(u8'Выключать при переключении между игроками', disable_after_recon_switch) then
                 mainIni.main.disable_after_recon_switch = disable_after_recon_switch.v
-                inicfg.save(mainIni, directIni)
+                inicfg.save(mainIni, 'autoreport.ini')
             end
         end
         imgui.EndChild()
@@ -820,8 +970,14 @@ function main()
     if not isSampLoaded() or not isSampfuncsLoaded() then return end
     while not isSampAvailable() do wait(100) end
     
+    -- Загружаем настройки сразу после проверки SAMP
+    loadSettings()
+    
     -- Проверка на отладчик при запуске
     if checkDebugger() then return end
+    
+    -- Проверяем активацию при запуске
+    _0x1.is_activated = checkActivation()
     
     -- Сохраняем хеш кода для проверки целостности
     local file = io.open(thisScript().path, "rb")
@@ -874,28 +1030,19 @@ function main()
     
     -- Проверяем обновления при запуске
     checkUpdates(false)
-    wait(1000) -- Ждем результатов проверки
+    wait(1000)
     
+    -- Исправленные сообщения при загрузке
     if not update_available then
-        sampAddChatMessage('[AutoReport] {ffffff}Загружена актуальная версия ' .. script_version_number, 0x7ef542)  -- Изменено здесь
+        sampAddChatMessage('Скрипт загружен. Версия: {00cc00}' .. script_version_number, 0x7ef542)
     end
     
-    -- Проверка активации
-    _0x1.is_activated = checkActivation()
     if not _0x1.is_activated then
-        sampAddChatMessage('[AutoReport] {ffffff}Скрипт не активирован! Используйте {00ccff}/ak{ffffff} для получения ключа.', 0x7ef542)
+        sampAddChatMessage('Используйте {00ccff}/ak{ffffff} для получения ключа', 0x7ef542)
     end
     
     processPacketPriority()
-    sampAddChatMessage('[AutoReport] {ffffff}Скрипт создан {ff0000}Papa_Neurowise {ffffff}[{00ccff}Администратор Yava{ffffff}]. Версия: {00cc00}' .. script_version_number, 0x7ef542)  -- Изменено здесь
-    
-    local function updateCleoState()
-        if active and _0x1.is_activated then
-            memory.setint8(memory_flag, 1, true)
-        else
-            memory.setint8(memory_flag, 0, true)
-        end
-    end
+    sampAddChatMessage('Автор: {ff0000}Papa_Neurowise {ffffff}[{00ccff}Администратор Yava{ffffff}]', 0x7ef542)
     
     -- Проверяем обновления каждый час
     lua_thread.create(function()
@@ -954,7 +1101,8 @@ function sampev.onSpectatePlayer(id, state)
     if state and active and _0x1.is_activated and disable_after_recon_switch.v then
         active = false
         printString('AutoReport: ~r~OFF', 5000, 6)
-        sampAddChatMessage('[AutoReport] {ffffff}Автоловля выключена (переключение в реконе)', 0x7ef542)
+        -- Убираем префикс [AutoReport], так как он уже добавляется в sampAddChatMessage
+        sampAddChatMessage('Автоловля выключена (переключение в реконе)', 0x7ef542)
     end
 end
 
@@ -963,7 +1111,8 @@ function sampev.onTogglePlayerSpectating(state)
         if disable_after_report.v then
             active = false
             printString('AutoReport: ~r~OFF', 5000, 6)
-            sampAddChatMessage('[AutoReport] {ffffff}Автоловля выключена (вход в рекон)', 0x7ef542)
+            -- Здесь тоже убираем префикс
+            sampAddChatMessage('Автоловля выключена (вход в рекон)', 0x7ef542)
         end
     end
 end
