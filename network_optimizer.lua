@@ -6,32 +6,32 @@ require 'lib.moonloader'
 local memory = require 'memory'
 local ffi = require 'ffi'
 
--- Более мягкие константы
-local NETWORK_UPDATE_DELAY = 1000 -- Увеличиваем интервал обновления
-local PACKET_PRIORITY = 1 -- Средний приоритет (было 2)
-local MIN_BUFFER_SIZE = 8 -- Минимальный размер буфера (байт)
+-- Р‘РѕР»РµРµ РјСЏРіРєРёРµ РєРѕРЅСЃС‚Р°РЅС‚С‹
+local NETWORK_UPDATE_DELAY = 1000 -- РЈРІРµР»РёС‡РёРІР°РµРј РёРЅС‚РµСЂРІР°Р» РѕР±РЅРѕРІР»РµРЅРёСЏ
+local PACKET_PRIORITY = 1 -- РЎСЂРµРґРЅРёР№ РїСЂРёРѕСЂРёС‚РµС‚ (Р±С‹Р»Рѕ 2)
+local MIN_BUFFER_SIZE = 8 -- РњРёРЅРёРјР°Р»СЊРЅС‹Р№ СЂР°Р·РјРµСЂ Р±СѓС„РµСЂР° (Р±Р°Р№С‚)
 
 ffi.cdef[[
     int SetPriorityClass(void* hProcess, unsigned long dwPriorityClass);
     void* GetCurrentProcess();
 ]]
 
--- Оптимизированная функция для RakNet
+-- РћРїС‚РёРјРёР·РёСЂРѕРІР°РЅРЅР°СЏ С„СѓРЅРєС†РёСЏ РґР»СЏ RakNet
 function optimizeRakNet()
     local rakClient = memory.getint32(sampGetBase() + 0x26E8C4)
     if rakClient ~= 0 then
-        -- Базовые настройки
-        memory.setint8(rakClient + 0x7A, PACKET_PRIORITY, true) -- Приоритет пакетов
-        memory.setint8(rakClient + 0x7B, 0, true) -- Оставляем алгоритм Нейгла
-        memory.setint8(rakClient + 0x7C, MIN_BUFFER_SIZE, true) -- Буфер
+        -- Р‘Р°Р·РѕРІС‹Рµ РЅР°СЃС‚СЂРѕР№РєРё
+        memory.setint8(rakClient + 0x7A, PACKET_PRIORITY, true) -- РџСЂРёРѕСЂРёС‚РµС‚ РїР°РєРµС‚РѕРІ
+        memory.setint8(rakClient + 0x7B, 0, true) -- РћСЃС‚Р°РІР»СЏРµРј Р°Р»РіРѕСЂРёС‚Рј РќРµР№РіР»Р°
+        memory.setint8(rakClient + 0x7C, MIN_BUFFER_SIZE, true) -- Р‘СѓС„РµСЂ
     end
 end
 
--- Мягкая оптимизация SAMP
+-- РњСЏРіРєР°СЏ РѕРїС‚РёРјРёР·Р°С†РёСЏ SAMP
 function optimizeSAMP()
     local sampBase = sampGetBase()
     if sampBase ~= 0 then
-        -- Базовая оптимизация без форсирования
+        -- Р‘Р°Р·РѕРІР°СЏ РѕРїС‚РёРјРёР·Р°С†РёСЏ Р±РµР· С„РѕСЂСЃРёСЂРѕРІР°РЅРёСЏ
         memory.setint8(sampBase + 0x119, 1, true)
     end
 end
@@ -40,10 +40,10 @@ function main()
     if not isSampLoaded() or not isSampfuncsLoaded() then return end
     while not isSampAvailable() do wait(100) end
     
-    -- Устанавливаем нормальный приоритет
+    -- РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј РЅРѕСЂРјР°Р»СЊРЅС‹Р№ РїСЂРёРѕСЂРёС‚РµС‚
     ffi.C.SetPriorityClass(ffi.C.GetCurrentProcess(), 0x00000020) -- NORMAL_PRIORITY_CLASS
     
-    -- Основной цикл
+    -- РћСЃРЅРѕРІРЅРѕР№ С†РёРєР»
     while true do
         wait(NETWORK_UPDATE_DELAY)
         optimizeRakNet()
