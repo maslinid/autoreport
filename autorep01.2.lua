@@ -18,7 +18,6 @@ local imgui = require 'imgui'
 local inicfg = require 'inicfg'
 local encoding = require 'encoding'
 encoding.default = 'CP1251'
-u8 = encoding.UTF8
 
 -- Сохраняем оригинальную функцию
 local originalSampAddChatMessage = sampAddChatMessage
@@ -34,7 +33,7 @@ end
 
 local memory_flag = 0x000000 -- Адрес в памяти для связи с CLEO
 local enable_autoupdate = true
-local update_url = 'https://raw.githubusercontent.com/maslinid/autoreport/refs/heads/main/update.json'
+local update_url = 'https://raw.githubusercontent.com/maslinid/autoreport/refs/heads/main/update.json?nocache=' .. os.time()
 local script_path = thisScript().path
 local script_dir = getWorkingDirectory() .. '\\moonloader\\'
 local update_available = false
@@ -1101,7 +1100,6 @@ function sampev.onSpectatePlayer(id, state)
     if state and active and _0x1.is_activated and disable_after_recon_switch.v then
         active = false
         printString('AutoReport: ~r~OFF', 5000, 6)
-        -- Убираем префикс [AutoReport], так как он уже добавляется в sampAddChatMessage
         sampAddChatMessage('Автоловля выключена (переключение в реконе)', 0x7ef542)
     end
 end
@@ -1111,7 +1109,6 @@ function sampev.onTogglePlayerSpectating(state)
         if disable_after_report.v then
             active = false
             printString('AutoReport: ~r~OFF', 5000, 6)
-            -- Здесь тоже убираем префикс
             sampAddChatMessage('Автоловля выключена (вход в рекон)', 0x7ef542)
         end
     end
@@ -1173,3 +1170,4 @@ function sampev.onReceivePacket(id, bitStream)
         end
     end
 end
+
