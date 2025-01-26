@@ -6,12 +6,12 @@ require 'lib.moonloader'
 local sampev = require 'lib.samp.events'
 local renderFont = renderCreateFont('Arial', 10, FCR_BORDER)
 
--- Структура для хранения информации
+-- РЎС‚СЂСѓРєС‚СѓСЂР° РґР»СЏ С…СЂР°РЅРµРЅРёСЏ РёРЅС„РѕСЂРјР°С†РёРё
 local quitInfo = {}
 local playerPositions = {}
 local lastDisconnectTime = {}
 
--- Проверка активации AutoReport
+-- РџСЂРѕРІРµСЂРєР° Р°РєС‚РёРІР°С†РёРё AutoReport
 local function isAutoReportActivated()
     local path = getGameDirectory() .. '\\moonloader\\config\\autoreport_license.txt'
     if not doesFileExist(path) then return false end
@@ -25,16 +25,16 @@ local function isAutoReportActivated()
     return tonumber(expiration_time) > os.time()
 end
 
--- Проверка, находится ли игрок в зоне стриминга
+-- РџСЂРѕРІРµСЂРєР°, РЅР°С…РѕРґРёС‚СЃСЏ Р»Рё РёРіСЂРѕРє РІ Р·РѕРЅРµ СЃС‚СЂРёРјРёРЅРіР°
 local function isPlayerInStreamingRange(playerId)
     if not playerPositions[playerId] then return false end
     local pos = playerPositions[playerId]
     local myX, myY, myZ = getCharCoordinates(PLAYER_PED)
     local dist = getDistanceBetweenCoords3d(pos.x, pos.y, pos.z, myX, myY, myZ)
-    return dist <= 150.0 -- Стандартная дистанция стриминга SA:MP
+    return dist <= 150.0 -- РЎС‚Р°РЅРґР°СЂС‚РЅР°СЏ РґРёСЃС‚Р°РЅС†РёСЏ СЃС‚СЂРёРјРёРЅРіР° SA:MP
 end
 
--- Проверка активации AutoReport
+-- РџСЂРѕРІРµСЂРєР° Р°РєС‚РёРІР°С†РёРё AutoReport
 local function isAutoReportActivated()
     local path = getGameDirectory() .. '\\moonloader\\config\\autoreport_license.txt'
     if not doesFileExist(path) then 
@@ -58,11 +58,11 @@ local function isAutoReportActivated()
         return false 
     end
     
-    -- Проверяем, не истек ли срок действия
+    -- РџСЂРѕРІРµСЂСЏРµРј, РЅРµ РёСЃС‚РµРє Р»Рё СЃСЂРѕРє РґРµР№СЃС‚РІРёСЏ
     return tonumber(expiration_time) > os.time()
 end
 
--- Остальные функции остаются без изменений
+-- РћСЃС‚Р°Р»СЊРЅС‹Рµ С„СѓРЅРєС†РёРё РѕСЃС‚Р°СЋС‚СЃСЏ Р±РµР· РёР·РјРµРЅРµРЅРёР№
 function sampev.onPlayerStreamIn(playerId, team, model, position, rotation, color, fightingStyle)
     if not isAutoReportActivated() then return end
     
@@ -103,15 +103,15 @@ function sampev.onPlayerQuit(playerId, reason)
     
     if sampIsPlayerConnected(playerId) then
         local nickname = sampGetPlayerNickname(playerId)
-        local reasonText = "вышел"
+        local reasonText = "РІС‹С€РµР»"
         
         if reason == 0 then
-            reasonText = "вышел"
+            reasonText = "РІС‹С€РµР»"
             lastDisconnectTime[playerId] = os.time()
         elseif reason == 1 then
-            reasonText = "кикнут"
+            reasonText = "РєРёРєРЅСѓС‚"
         elseif reason == 2 then
-            reasonText = "бан"
+            reasonText = "Р±Р°РЅ"
         end
         
         local pos = playerPositions[playerId]
@@ -120,14 +120,14 @@ function sampev.onPlayerQuit(playerId, reason)
                 x = pos.x,
                 y = pos.y,
                 z = pos.z + 0.5,
-                text = string.format("%s\nПричина: %s\nВремя: %s", nickname, reasonText, getCurrentTime()),
+                text = string.format("%s\nРџСЂРёС‡РёРЅР°: %s\nР’СЂРµРјСЏ: %s", nickname, reasonText, getCurrentTime()),
                 time = os.time(),
                 nickname = nickname
             })
             
-            -- Сообщение в чат только если игрок был в зоне стриминга
+            -- РЎРѕРѕР±С‰РµРЅРёРµ РІ С‡Р°С‚ С‚РѕР»СЊРєРѕ РµСЃР»Рё РёРіСЂРѕРє Р±С‹Р» РІ Р·РѕРЅРµ СЃС‚СЂРёРјРёРЅРіР°
             if isPlayerInStreamingRange(playerId) then
-                sampAddChatMessage(string.format('[Quit Logger] Игрок %s %s на позиции: %.1f, %.1f, %.1f', 
+                sampAddChatMessage(string.format('[Quit Logger] РРіСЂРѕРє %s %s РЅР° РїРѕР·РёС†РёРё: %.1f, %.1f, %.1f', 
                     nickname, reasonText, pos.x, pos.y, pos.z), 0x7ef542)
             end
         end
@@ -141,28 +141,28 @@ function main()
     while not isSampAvailable() do wait(100) end
     
     if not isAutoReportActivated() then
-        sampAddChatMessage('[Quit Logger] {ffffff}Для работы требуется активированный AutoReport!', 0x7ef542)
+        sampAddChatMessage('[Quit Logger] {ffffff}Р”Р»СЏ СЂР°Р±РѕС‚С‹ С‚СЂРµР±СѓРµС‚СЃСЏ Р°РєС‚РёРІРёСЂРѕРІР°РЅРЅС‹Р№ AutoReport!', 0x7ef542)
         thisScript():unload()
         return
     end
     
     sampRegisterChatCommand("clearquit", function()
         if not isAutoReportActivated() then
-            sampAddChatMessage('[Quit Logger] {ffffff}Для работы требуется активированный AutoReport!', 0x7ef542)
+            sampAddChatMessage('[Quit Logger] {ffffff}Р”Р»СЏ СЂР°Р±РѕС‚С‹ С‚СЂРµР±СѓРµС‚СЃСЏ Р°РєС‚РёРІРёСЂРѕРІР°РЅРЅС‹Р№ AutoReport!', 0x7ef542)
             return
         end
         
         quitInfo = {}
         playerPositions = {}
         lastDisconnectTime = {}
-        sampAddChatMessage('[Quit Logger] {ffffff}Все записи очищены!', 0x7ef542)
+        sampAddChatMessage('[Quit Logger] {ffffff}Р’СЃРµ Р·Р°РїРёСЃРё РѕС‡РёС‰РµРЅС‹!', 0x7ef542)
     end)
     
     while true do
         wait(0)
         
         if not isAutoReportActivated() then
-            sampAddChatMessage('[Quit Logger] {ffffff}AutoReport деактивирован. Выгружаем скрипт...', 0x7ef542)
+            sampAddChatMessage('[Quit Logger] {ffffff}AutoReport РґРµР°РєС‚РёРІРёСЂРѕРІР°РЅ. Р’С‹РіСЂСѓР¶Р°РµРј СЃРєСЂРёРїС‚...', 0x7ef542)
             thisScript():unload()
             break
         end
