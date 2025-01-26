@@ -9,7 +9,7 @@ local encoding = require 'encoding'
 encoding.default = 'CP1251'
 u8 = encoding.UTF8
 
--- Конфигурация
+-- РљРѕРЅС„РёРіСѓСЂР°С†РёСЏ
 local directIni = 'moonloader\\config\\autoreport_sync.ini'
 local mainIni = inicfg.load({
     main = {
@@ -17,15 +17,15 @@ local mainIni = inicfg.load({
         show_markers = true
     },
     style = {
-        author_color = 0xFF0000FF, -- красный
-        user_color = 0x7ef542FF,   -- зеленый
+        author_color = 0xFF0000FF, -- РєСЂР°СЃРЅС‹Р№
+        user_color = 0x7ef542FF,   -- Р·РµР»РµРЅС‹Р№
         author_text = "AutoRep Developer",
         user_text = "AutoRep User"
     }
 }, directIni)
 inicfg.save(mainIni, directIni)
 
--- Глобальные переменные
+-- Р“Р»РѕР±Р°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ
 local active_users = {}
 local sync_timer = 0
 local SYNC_INTERVAL = 5
@@ -33,7 +33,7 @@ local SYNC_TIMEOUT = 10
 local MY_NICKNAME = "Papa_Neurowise"
 local renderText = renderCreateFont('Arial', 8, FCR_BOLD + FCR_BORDER)
 
--- Проверка статуса основного скрипта
+-- РџСЂРѕРІРµСЂРєР° СЃС‚Р°С‚СѓСЃР° РѕСЃРЅРѕРІРЅРѕРіРѕ СЃРєСЂРёРїС‚Р°
 function checkMainScript()
     local handle = io.open(getGameDirectory() .. '\\moonloader\\config\\autoreport_license.txt', 'r')
     if handle then
@@ -43,105 +43,116 @@ function checkMainScript()
     return false
 end
 
--- Отправка синхронизации
+-- РћС‚РїСЂР°РІРєР° СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё (СЃ Р·Р°С‰РёС‚РѕР№ РѕС‚ СЃРїР°РјР°)
+local last_sync_time = 0
 function sendSync()
+    local current_time = os.clock()
+    if current_time - last_sync_time < 1.0 then return end -- Р—Р°С‰РёС‚Р° РѕС‚ СЃРїР°РјР°
+    
     local result, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
     if result then
         local nickname = sampGetPlayerNickname(id)
         local isAuthor = nickname == MY_NICKNAME
-        -- Отправляем синхронизацию только если основной скрипт активен
         if checkMainScript() then
             sampSendChat("/c [AR2.0:" .. (mainIni.main.enabled and "1" or "0") .. ":" .. (isAuthor and "1" or "0") .. "]")
+            last_sync_time = current_time
         end
     end
 end
 
--- Отрисовка меток
+-- Р‘РµР·РѕРїР°СЃРЅР°СЏ РѕС‚СЂРёСЃРѕРІРєР° РјРµС‚РѕРє
 function renderAdminMarkers()
     if not mainIni.main.show_markers then return end
     
+    local result, myId = sampGetPlayerIdByCharHandle(PLAYER_PED)
+    if not result then return end
+    
+    local myX, myY, myZ = getCharCoordinates(PLAYER_PED)
+    
     for id, data in pairs(active_users) do
-        if sampIsPlayerConnected(id) then
-            local result, ped = sampGetCharHandleBySampPlayerId(id)
-            if result and doesCharExist(ped) then
-                local x, y, z = getCharCoordinates(ped)
-                local myX, myY, myZ = getCharCoordinates(PLAYER_PED)
-                
-                if getDistanceBetweenCoords3d(myX, myY, myZ, x, y, z) < 50.0 then
-                    local sx, sy = convert3DCoordsToScreen(x, y, z + 0.8)
-                    if sx and sy then
-                        local marker = data.isAuthor and mainIni.style.author_text or mainIni.style.user_text
-                        local color = data.isAuthor and mainIni.style.author_color or mainIni.style.user_color
-                        renderFontDrawText(renderText, marker, sx - 30, sy, color)
+        if sampIsPlayerConnected(id) and id ~= myId then -- РќРµ РѕС‚РѕР±СЂР°Р¶Р°РµРј РјРµС‚РєСѓ РґР»СЏ СЃРµР±СЏ
+            pcall(function()
+                local result, ped = sampGetCharHandleBySampPlayerId(id)
+                if result and doesCharExist(ped) then
+                    local x, y, z = getCharCoordinates(ped)
+                    
+                    if getDistanceBetweenCoords3d(myX, myY, myZ, x, y, z) < 50.0 then
+                        local sx, sy = convert3DCoordsToScreen(x, y, z + 0.8)
+                        if sx and sy then
+                            local marker = data.isAuthor and mainIni.style.author_text or mainIni.style.user_text
+                            local color = data.isAuthor and mainIni.style.author_color or mainIni.style.user_color
+                            renderFontDrawText(renderText, marker, sx - 30, sy, color)
+                        end
                     end
                 end
-            end
+            end)
         end
     end
 end
 
--- Обработчики событий
+-- РћР±СЂР°Р±РѕС‚С‡РёРє СЃРѕРѕР±С‰РµРЅРёР№ СЃ Р·Р°С‰РёС‚РѕР№
 function sampev.onServerMessage(color, text)
     local status, isAuthor = text:match("%[AR2%.0:(%d):(%d)%]")
     if status then
-        local result, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
-        if result then
-            active_users[id] = {
-                time = os.time(),
-                active = (status == "1"),
-                isAuthor = (isAuthor == "1")
-            }
-        end
+        pcall(function()
+            local result, id = sampGetPlayerIdByCharHandle(PLAYER_PED)
+            if result then
+                active_users[id] = {
+                    time = os.time(),
+                    active = (status == "1"),
+                    isAuthor = (isAuthor == "1")
+                }
+            end
+        end)
         return false
     end
     return true
 end
 
--- Команды
+-- РљРѕРјР°РЅРґС‹
 function cmd_arsync(arg)
     if arg == "markers" then
         mainIni.main.show_markers = not mainIni.main.show_markers
         inicfg.save(mainIni, directIni)
-        sampAddChatMessage("[AutoRep Sync] Отображение меток " .. (mainIni.main.show_markers and "включено" or "выключено"), 0x7ef542)
+        sampAddChatMessage("[AutoRep Sync] РћС‚РѕР±СЂР°Р¶РµРЅРёРµ РјРµС‚РѕРє " .. (mainIni.main.show_markers and "РІРєР»СЋС‡РµРЅРѕ" or "РІС‹РєР»СЋС‡РµРЅРѕ"), 0x7ef542)
     else
-        sampAddChatMessage("[AutoRep Sync] Команды:", 0x7ef542)
-        sampAddChatMessage("/arsync markers - включить/выключить отображение меток", 0x7ef542)
+        sampAddChatMessage("[AutoRep Sync] РљРѕРјР°РЅРґС‹:", 0x7ef542)
+        sampAddChatMessage("/arsync markers - РІРєР»СЋС‡РёС‚СЊ/РІС‹РєР»СЋС‡РёС‚СЊ РѕС‚РѕР±СЂР°Р¶РµРЅРёРµ РјРµС‚РѕРє", 0x7ef542)
     end
 end
 
--- Главный цикл
+-- Р“Р»Р°РІРЅС‹Р№ С†РёРєР» СЃ РѕР±СЂР°Р±РѕС‚РєРѕР№ РѕС€РёР±РѕРє
 function main()
     if not isSampLoaded() or not isSampfuncsLoaded() then return end
     while not isSampAvailable() do wait(100) end
     
-    -- Регистрация команд
     sampRegisterChatCommand("arsync", cmd_arsync)
     
-    -- Проверка наличия основного скрипта
     if not checkMainScript() then
-        sampAddChatMessage("[AutoRep Sync] Основной скрипт не найден!", 0x7ef542)
+        sampAddChatMessage("[AutoRep Sync] РћСЃРЅРѕРІРЅРѕР№ СЃРєСЂРёРїС‚ РЅРµ РЅР°Р№РґРµРЅ!", 0x7ef542)
         return
     end
     
-    sampAddChatMessage("[AutoRep Sync] Скрипт успешно загружен!", 0x7ef542)
+    sampAddChatMessage("[AutoRep Sync] РЎРєСЂРёРїС‚ СѓСЃРїРµС€РЅРѕ Р·Р°РіСЂСѓР¶РµРЅ!", 0x7ef542)
     
     while true do
         wait(0)
         
-        -- Синхронизация
-        if os.time() - sync_timer >= SYNC_INTERVAL then
-            sendSync()
-            sync_timer = os.time()
-            
-            -- Очистка неактивных пользователей
-            for id, data in pairs(active_users) do
-                if os.time() - data.time > SYNC_TIMEOUT then
-                    active_users[id] = nil
+        -- Р‘РµР·РѕРїР°СЃРЅРѕРµ РІС‹РїРѕР»РЅРµРЅРёРµ РѕСЃРЅРѕРІРЅРѕРіРѕ С†РёРєР»Р°
+        pcall(function()
+            if os.time() - sync_timer >= SYNC_INTERVAL then
+                sendSync()
+                sync_timer = os.time()
+                
+                -- РћС‡РёСЃС‚РєР° РЅРµР°РєС‚РёРІРЅС‹С… РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№
+                for id, data in pairs(active_users) do
+                    if os.time() - data.time > SYNC_TIMEOUT then
+                        active_users[id] = nil
+                    end
                 end
             end
-        end
-        
-        -- Отрисовка меток
-        renderAdminMarkers()
+            
+            renderAdminMarkers()
+        end)
     end
 end
