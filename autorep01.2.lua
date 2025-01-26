@@ -18,6 +18,7 @@ local imgui = require 'imgui'
 local inicfg = require 'inicfg'
 local encoding = require 'encoding'
 encoding.default = 'CP1251'
+u8 = encoding.UTF8
 
 -- Сохраняем оригинальную функцию
 local originalSampAddChatMessage = sampAddChatMessage
@@ -1179,4 +1180,5 @@ function sampev.onReceivePacket(id, bitStream)
         end
     end
 end
+
 
