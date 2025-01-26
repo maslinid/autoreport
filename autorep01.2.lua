@@ -97,15 +97,7 @@ function checkUpdates(manual)
         sampAddChatMessage('[AutoReport] {ffffff}Начинаю проверку обновлений...', 0x7ef542)
     end
 
-    -- Проверяем существование директории
-    if not doesDirectoryExist(script_dir) then
-        createDirectory(script_dir)
-    end
-
-    -- Полный путь к временному файлу
     local json_path = script_dir .. 'update.json'
-    
-    -- Удаляем старый файл если он существует
     if doesFileExist(json_path) then
         os.remove(json_path)
     end
@@ -123,8 +115,10 @@ function checkUpdates(manual)
                 
                 local ok, info = pcall(decodeJson, content)
                 if ok and info then
-                    -- Проверяем версию основного скрипта
-                    if info.latest ~= script_version_number then
+                    local current_version = tonumber(script_version_number)
+                    local latest_version = tonumber(info.latest)
+                    
+                    if latest_version > current_version then
                         update_available = true
                         new_version = info.latest
                         if manual then
@@ -132,6 +126,14 @@ function checkUpdates(manual)
                             sampAddChatMessage('¦ {ffffff}Доступно обновление!', 0x7ef542)
                             sampAddChatMessage('¦ {ffffff}Текущая версия: {ff0000}' .. script_version_number, 0x7ef542)
                             sampAddChatMessage('¦ {ffffff}Новая версия: {00ff00}' .. new_version, 0x7ef542)
+                            -- Декодируем changelog из UTF-8
+                            if info.changelog then
+                                sampAddChatMessage('¦ {ffffff}Список изменений:', 0x7ef542)
+                                local changelog = decodeUTF8(info.changelog)
+                                for line in changelog:gmatch("[^\n]+") do
+                                    sampAddChatMessage('¦ {ffffff}' .. line, 0x7ef542)
+                                end
+                            end
                             sampAddChatMessage('¦ {ffffff}Начинаю обновление...', 0x7ef542)
                             sampAddChatMessage('L==========================================', 0x7ef542)
                             downloadUpdates(info)
@@ -151,10 +153,15 @@ function checkUpdates(manual)
                 end
             end
             
-            -- Удаляем временный файл
             os.remove(json_path)
         end
     end)
+end
+
+-- Добавляем функцию декодирования UTF-8
+function decodeUTF8(str)
+    if not str then return "" end
+    return encoding.UTF8:decode(str)
 end
 
 function downloadUpdates(info)
@@ -165,18 +172,18 @@ function downloadUpdates(info)
     table.insert(download_queue, {url = info.updateurl, path = script_path, name = "Основной скрипт"})
     
     -- Добавляем дополнительные файлы
-    for filename, url in pairs(info.additional_files) do
-        table.insert(download_queue, {url = url, path = script_dir .. filename, name = filename})
+    if info.additional_files then
+        for filename, url in pairs(info.additional_files) do
+            table.insert(download_queue, {url = url, path = script_dir .. filename, name = filename})
+        end
     end
     
     -- Создаем функцию для последовательной загрузки
     local function processQueue()
         if #download_queue == 0 then
             sampAddChatMessage('[AutoReport] {ffffff}Все файлы обновлены! Перезагружаю скрипты...', 0x7ef542)
-            -- Даем время на завершение всех операций
             lua_thread.create(function()
                 wait(1000)
-                -- Перезагружаем основной скрипт
                 thisScript():reload()
             end)
             return
@@ -185,11 +192,47 @@ function downloadUpdates(info)
         local item = table.remove(download_queue, 1)
         sampAddChatMessage('[AutoReport] {ffffff}Загрузка: ' .. item.name, 0x7ef542)
         
-        downloadUrlToFile(item.url, item.path, function(id, status)
-            if status == dlstatus.STATUS_ENDDOWNLOADDATA then
-                sampAddChatMessage('[AutoReport] {ffffff}Успешно загружен: ' .. item.name, 0x7ef542)
-                processQueue()
-            end
+        -- Удаляем старый файл перед загрузкой
+        if doesFileExist(item.path) then
+            os.remove(item.path)
+            wait(100) -- Ждем удаления файла
+        end
+        
+        -- Создаем папку, если её нет
+        local folder = item.path:match("(.*\\)")
+        if folder and not doesDirectoryExist(folder) then
+            createDirectory(folder)
+        end
+        
+        -- Пытаемся загрузить файл с повторами при ошибке
+        local attempts = 0
+        local max_attempts = 3
+        
+        local function tryDownload()
+            attempts = attempts + 1
+            downloadUrlToFile(item.url, item.path, function(id, status, p1, p2)
+                if status == dlstatus.STATUS_ENDDOWNLOADDATA then
+                    if doesFileExist(item.path) then
+                        sampAddChatMessage('[AutoReport] {ffffff}Успешно загружен: ' .. item.name, 0x7ef542)
+                        wait(500) -- Ждем между загрузками
+                        processQueue()
+                    else
+                        if attempts < max_attempts then
+                            sampAddChatMessage('[AutoReport] {ffffff}Повторная попытка загрузки: ' .. item.name, 0x7ef542)
+                            wait(1000)
+                            tryDownload()
+                        else
+                            sampAddChatMessage('[AutoReport] {ff0000}Ошибка загрузки: ' .. item.name, 0x7ef542)
+                            processQueue()
+                        end
+                    end
+                end
+            end)
+        end
+        
+        lua_thread.create(function()
+            wait(100) -- Небольшая задержка перед началом загрузки
+            tryDownload()
         end)
     end
     
@@ -198,7 +241,11 @@ function downloadUpdates(info)
     sampAddChatMessage('¦ {ffffff}Начинаю процесс обновления', 0x7ef542)
     sampAddChatMessage('¦ {ffffff}Всего файлов к загрузке: {00ff00}' .. #download_queue, 0x7ef542)
     sampAddChatMessage('L==========================================', 0x7ef542)
-    processQueue()
+    
+    lua_thread.create(function()
+        wait(100)
+        processQueue()
+    end)
 end
 
 -- Функции шифрования для хранения использованных ключей
