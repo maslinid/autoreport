@@ -1,10 +1,10 @@
 {
     "latest": "2.0",
-    "updateurl": "https://raw.githubusercontent.com/маслинид/autoreport/main/autorep01.2.lua",
+    "updateurl": "https://raw.githubusercontent.com/maslinid/autoreport/main/autorep01.2.lua",
     "additional_files": {
-        "autorep_sync.lua": "https://raw.githubusercontent.com/маслинид/autoreport/main/autorep_sync.lua",
-        "check_quit.lua": "https://raw.githubusercontent.com/маслинид/autoreport/main/check_quit.lua",
-        "network_optimizer.lua": "https://raw.githubusercontent.com/маслинид/autoreport/main/network_optimizer.lua"
+        "autorep_sync.lua": "https://raw.githubusercontent.com/maslinid/autoreport/main/autorep_sync.lua",
+        "check_quit.lua": "https://raw.githubusercontent.com/maslinid/autoreport/main/check_quit.lua",
+        "network_optimizer.lua": "https://raw.githubusercontent.com/maslinid/autoreport/main/network_optimizer.lua"
     },
     "changelog": "Обновление 2.0:\n- Добавлено автообновление\n- Улучшена производительность\n- Исправлены баги\n- Добавлена синхронизация\n- Добавлен логгер выходов\n- Добавлена оптимизация сети"
 }
